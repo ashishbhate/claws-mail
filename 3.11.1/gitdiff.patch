@@ -1,0 +1,56 @@
+diff --git a/src/textview.c b/src/textview.c
+index b2a0985..96202c1 100644
+--- a/src/textview.c
++++ b/src/textview.c
+@@ -1059,6 +1059,7 @@ static void textview_write_body(TextView *textview, MimeInfo *mimeinfo)
+ 	
+ 	textview->is_in_signature = FALSE;
+ 	textview->is_diff = FALSE;
++       textview->is_in_git_patch = FALSE;
+ 
+ 	procmime_decode_content(mimeinfo);
+ 
+@@ -1600,7 +1601,7 @@ static void textview_write_line(TextView *textview, const gchar *str,
+ 	}
+ 
+ 	if (prefs_common.enable_color) {
+-		if (textview->is_diff) {
++               if (textview->is_diff || textview->is_in_git_patch) {
+ 			if (strncmp(buf, "+++ ", 4) == 0)
+ 				fg_color = "diff-add-file";
+ 			else if (buf[0] == '+')
+@@ -1609,14 +1610,20 @@ static void textview_write_line(TextView *textview, const gchar *str,
+ 				fg_color = "diff-del-file";
+ 			else if (buf[0] == '-')
+ 				fg_color = "diff-del";
+-			else if (strncmp(buf, "@@ ", 3) == 0 &&
+-					strcmp(buf+strlen(buf)-4, " @@\n") == 0)
++			else if (strncmp(buf, "@@ ", 3) == 0 && strstr(&buf[3], " @@"))
+ 				fg_color = "diff-hunk";
++                       if (strcmp(buf,"-- \n") == 0) {
++                               textview->is_in_git_patch = FALSE;
++                               textview->is_in_signature = TRUE;
++                               fg_color = "signature";
++                       }
+ 		} else if (strcmp(buf,"-- \n") == 0
+ 				|| strcmp(buf, "- -- \n") == 0
+ 				|| textview->is_in_signature) {
+ 			fg_color = "signature";
+ 			textview->is_in_signature = TRUE;
++               } else if (strncmp(buf, "diff --git ", 11) == 0) {
++                       textview->is_in_git_patch = TRUE;
+ 		}
+ 	}
+ 
+diff --git a/src/textview.h b/src/textview.h
+index 5d478fd..47ff283 100644
+--- a/src/textview.h
++++ b/src/textview.h
+@@ -67,6 +67,7 @@ struct _TextView
+ 	gboolean default_text;
+ 	gboolean is_in_signature;
+ 	gboolean is_diff;
++       gboolean is_in_git_patch;
+ 	
+ 	GSList *uri_list;
+ 	gint body_pos;
